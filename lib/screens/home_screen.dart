@@ -29,9 +29,6 @@ class HomeScreen extends ConsumerWidget {
       allowMultiple: true,
     );
     if (result == null) return;
-    for (final f in result.files) {
-      debugPrint('[picker] path=${f.path}  name=${f.name}');
-    }
     // On Android 12+ the photo picker caches files as "<mediaId>.mp4" and
     // reports that as f.name — resolve the real DISPLAY_NAME from MediaStore.
     Future<String> resolveDisplayName(String pickerName) async {
@@ -40,7 +37,6 @@ class HomeScreen extends ConsumerWidget {
           : pickerName;
       if (RegExp(r'^\d+$').hasMatch(stem)) {
         final real = await MediaScannerService.resolveDisplayName(stem);
-        debugPrint('[picker] resolved $stem -> $real');
         if (real != null) return real;
       }
       return pickerName;

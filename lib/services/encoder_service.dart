@@ -7,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import '../models/conversion_result.dart';
 import '../models/encoding_preset.dart';
 import '../models/video_file.dart';
-
 import 'media_scanner_service.dart';
 
 typedef ProgressCallback = void Function(double progress);
