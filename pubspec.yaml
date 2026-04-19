@@ -1,0 +1,25 @@
+name: shrinkemvids
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  ffmpeg_kit_flutter_new: ^4.1.0
+  file_picker: 8.1.7
+  permission_handler: ^11.3.1
+  path_provider: ^2.1.4
+  dynamic_color: ^1.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
