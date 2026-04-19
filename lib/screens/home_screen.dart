@@ -4,7 +4,6 @@ import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../models/conversion_result.dart';
 import '../models/encoding_preset.dart';
 import '../models/video_file.dart';
 import '../providers/conversion_provider.dart';
@@ -16,10 +15,50 @@ import '../services/encoder_service.dart';
 import '../services/media_scanner_service.dart';
 import '../services/thumbnail_service.dart';
 import 'progress_screen.dart';
-import 'done_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
+  bool _navigatedToProgress = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkReconnect());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkReconnect();
+  }
+
+  void _checkReconnect() {
+    if (!mounted || _navigatedToProgress) return;
+    final s = ref.read(conversionStateProvider);
+    if (s is ConversionInProgress) _goToProgress();
+  }
+
+  Future<void> _goToProgress() async {
+    if (_navigatedToProgress) return;
+    _navigatedToProgress = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProgressScreen()),
+    );
+    _navigatedToProgress = false;
+  }
 
   // ── File picker mode ──────────────────────────────────────────────────────
 
@@ -150,46 +189,14 @@ class HomeScreen extends ConsumerWidget {
     final toConvert = files.where((f) => f.selected && f.isEligible).toList();
     if (toConvert.isEmpty) return;
 
-    final notifier = ref.read(conversionStateProvider.notifier);
-    final encoder = EncoderService();
-    encoder.reset();
+    // Request notification permission (Android 13+) before starting
+    await Permission.notification.request();
 
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ProgressScreen(
-        onSkip: () => encoder.skipCurrentFile(),
-        onCancelAll: () => encoder.cancelAll(),
-      ),
-    ));
-
-    final results = <ConversionResult>[];
-    for (int i = 0; i < toConvert.length; i++) {
-      if (encoder.isCancelAllRequested) break;
-      final file = toConvert[i];
-      notifier.setProgress(i, toConvert.length, 0.0, file.displayName);
-
-      final result = await encoder.encode(
-        file,
-        resolution,
-        bitrateKbps,
-        onProgress: (p) => notifier.setProgress(i, toConvert.length, p, file.displayName),
-      );
-      results.add(result);
-
-      if (result.success) {
-        await MediaScannerService.scan(result.outputPath);
-      }
-    }
-
-    if (encoder.isCancelAllRequested) {
-      notifier.setCancelled(results);
-    } else {
-      notifier.setDone(results);
-    }
+    // Delegate all encoding to the foreground service
+    await EncoderService.startConversion(toConvert, resolution, bitrateKbps);
 
     if (context.mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => DoneScreen(results: results)),
-      );
+      await _goToProgress();
     }
   }
 
@@ -211,8 +218,17 @@ class HomeScreen extends ConsumerWidget {
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    // Reconnect listener: if service started while we were away
+    ref.listen<ConversionState>(conversionStateProvider, (prev, next) {
+      if (next is ConversionInProgress && prev is ConversionIdle) {
+        _goToProgress();
+      }
+    });
+
     final mode = ref.watch(selectionModeProvider);
     final files = ref.watch(selectedFilesProvider);
     final eligible = files.where((f) => f.selected && f.isEligible).toList();

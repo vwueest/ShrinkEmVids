@@ -1,26 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/conversion_provider.dart';
+import '../services/encoder_service.dart';
+import 'done_screen.dart';
 
 class ProgressScreen extends ConsumerWidget {
-  final VoidCallback onSkip;
-  final VoidCallback onCancelAll;
-
-  const ProgressScreen({
-    super.key,
-    required this.onSkip,
-    required this.onCancelAll,
-  });
+  const ProgressScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Navigate to DoneScreen / back to HomeScreen when the service finishes
+    ref.listen<ConversionState>(conversionStateProvider, (_, next) {
+      if (next is ConversionDone) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => DoneScreen(results: next.results)),
+        );
+      } else if (next is ConversionCancelled) {
+        ref.read(conversionStateProvider.notifier).reset();
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      }
+    });
+
     final state = ref.watch(conversionStateProvider);
+
+    if (state is ConversionConnecting) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     if (state is ConversionInProgress) {
       return _buildProgress(context, state);
     }
 
-    // Shouldn't normally be visible — navigation handles done/cancelled
     return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 
@@ -65,7 +77,7 @@ class ProgressScreen extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.skip_next),
                     label: const Text('Skip File'),
-                    onPressed: onSkip,
+                    onPressed: EncoderService.skipCurrentFile,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -76,7 +88,7 @@ class ProgressScreen extends ConsumerWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.error,
                     ),
-                    onPressed: onCancelAll,
+                    onPressed: EncoderService.cancelAll,
                   ),
                 ),
               ],

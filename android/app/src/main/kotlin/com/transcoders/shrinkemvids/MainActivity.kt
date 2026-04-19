@@ -1,6 +1,8 @@
 package com.transcoders.shrinkemvids
 
+import android.content.ContentUris
 import android.content.ContentValues
+import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.media.ThumbnailUtils
@@ -8,16 +10,96 @@ import android.provider.MediaStore
 import android.util.Size
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import java.io.File
 
 class MainActivity : FlutterActivity() {
-    private val channel = "com.transcoders.shrinkemvids/media_scanner"
+
+    private val mediaChannel = "com.transcoders.shrinkemvids/media_scanner"
+    private val convChannel = "com.transcoders.shrinkemvids/conversion"
+    private val progressChannel = "com.transcoders.shrinkemvids/conversion_progress"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
+
+        // ── EventChannel: streams progress events from the service to Flutter ──
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, progressChannel)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                    ConversionForegroundService.eventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    ConversionForegroundService.eventSink = null
+                }
+            })
+
+        // ── MethodChannel: conversion commands ───────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, convChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startConversion" -> {
+                        val filePaths = call.argument<List<String>>("filePaths") ?: emptyList()
+                        val displayNames = call.argument<List<String>>("displayNames") ?: emptyList()
+                        val outputFileNames = call.argument<List<String>>("outputFileNames") ?: emptyList()
+                        val inputSizes = call.argument<List<Long>>("inputSizes") ?: emptyList()
+                        val durationsMsList = call.argument<List<Long>>("durationMsList") ?: emptyList()
+                        val maxHeight = call.argument<Int>("maxHeight") ?: -1
+                        val videoBitrateKbps = call.argument<Int>("videoBitrateKbps") ?: 3200
+                        val audioBitrateKbps = call.argument<Int>("audioBitrateKbps") ?: 128
+                        val maxRateKbps = call.argument<Int>("maxRateKbps") ?: (videoBitrateKbps * 1.13).toInt()
+                        val bufSizeKbps = call.argument<Int>("bufSizeKbps") ?: videoBitrateKbps * 2
+
+                        val intent = Intent(this, ConversionForegroundService::class.java).apply {
+                            action = ConversionForegroundService.ACTION_START
+                            putStringArrayListExtra("filePaths", ArrayList(filePaths))
+                            putStringArrayListExtra("displayNames", ArrayList(displayNames))
+                            putStringArrayListExtra("outputFileNames", ArrayList(outputFileNames))
+                            putExtra("inputSizes", inputSizes.toLongArray())
+                            putExtra("durationMsList", durationsMsList.toLongArray())
+                            putExtra("maxHeight", maxHeight)
+                            putExtra("videoBitrateKbps", videoBitrateKbps)
+                            putExtra("audioBitrateKbps", audioBitrateKbps)
+                            putExtra("maxRateKbps", maxRateKbps)
+                            putExtra("bufSizeKbps", bufSizeKbps)
+                        }
+                        startForegroundService(intent)
+                        result.success(null)
+                    }
+                    "cancelConversion" -> {
+                        ConversionForegroundService.cancelRequested = true
+                        startService(Intent(this, ConversionForegroundService::class.java).apply {
+                            action = ConversionForegroundService.ACTION_CANCEL
+                        })
+                        result.success(null)
+                    }
+                    "skipFile" -> {
+                        ConversionForegroundService.skipRequested = true
+                        ConversionForegroundService.currentSessionId?.let {
+                            com.antonkarpenko.ffmpegkit.FFmpegKit.cancel(it)
+                        }
+                        result.success(null)
+                    }
+                    "getState" -> {
+                        if (ConversionForegroundService.isRunning) {
+                            result.success(mapOf(
+                                "running" to true,
+                                "currentFileIndex" to ConversionForegroundService.currentFileIndex,
+                                "totalFiles" to ConversionForegroundService.totalFiles,
+                                "currentFileName" to ConversionForegroundService.currentFileName,
+                                "currentProgress" to ConversionForegroundService.currentProgress,
+                            ))
+                        } else {
+                            result.success(mapOf("running" to false))
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // ── MethodChannel: media scanner + existing helpers ──────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "scanFile" -> {
@@ -151,7 +233,7 @@ class MainActivity : FlutterActivity() {
                         var displayName: String? = null
                         try {
                             // Try 1: query via direct content URI for the item
-                            val itemUri = android.content.ContentUris.withAppendedId(
+                            val itemUri = ContentUris.withAppendedId(
                                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                                 mediaId.toLong()
                             )
