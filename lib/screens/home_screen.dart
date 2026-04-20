@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -65,28 +64,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ── File picker mode ──────────────────────────────────────────────────────
 
   Future<void> _pickFiles(BuildContext context, WidgetRef ref) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      allowMultiple: true,
-    );
-    if (result == null) return;
-    // On Android 12+ the photo picker caches files as "<mediaId>.mp4" and
-    // reports that as f.name — resolve the real DISPLAY_NAME from MediaStore.
-    Future<String> resolveDisplayName(String pickerName) async {
-      final stem = pickerName.endsWith('.mp4')
-          ? pickerName.substring(0, pickerName.length - 4)
-          : pickerName;
-      if (RegExp(r'^\d+$').hasMatch(stem)) {
-        final real = await MediaScannerService.resolveDisplayName(stem);
-        if (real != null) return real;
-      }
-      return pickerName;
-    }
+    final picked = await MediaScannerService.pickVideos();
+    if (picked.isEmpty) return;
 
     var files = <VideoFile>[];
-    for (final f in result.files.where((f) => f.path != null)) {
-      final displayName = await resolveDisplayName(f.name);
-      files.add(buildVideoFile(f.path!, displayName: displayName));
+    for (final m in picked) {
+      final path = m['path'] as String?;
+      final displayName = m['displayName'] as String?;
+      if (path != null) {
+        files.add(buildVideoFile(path, displayName: displayName));
+      }
     }
     // Check which outputs already exist in DCIM/Camera
     final existing = await MediaScannerService.getExistingOutputNames();

@@ -1,11 +1,14 @@
 package com.transcoders.shrinkemvids
 
+import android.app.Activity
 import android.content.ContentUris
+import android.net.Uri
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.media.ThumbnailUtils
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
 import io.flutter.embedding.android.FlutterActivity
@@ -18,6 +21,8 @@ import java.io.File
 class MainActivity : FlutterActivity() {
 
     private val mediaChannel = "com.transcoders.shrinkemvids/media_scanner"
+    private val PICK_VIDEO_REQUEST = 2001
+    private var pickVideosResult: MethodChannel.Result? = null
     private val convChannel = "com.transcoders.shrinkemvids/conversion"
     private val progressChannel = "com.transcoders.shrinkemvids/conversion_progress"
 
@@ -102,6 +107,23 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "pickVideos" -> {
+                        pickVideosResult = result
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                                putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
+                                type = "video/*"
+                            }
+                        } else {
+                            Intent(Intent.ACTION_GET_CONTENT).apply {
+                                type = "video/*"
+                                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                            }
+                        }
+                        startActivityForResult(intent, PICK_VIDEO_REQUEST)
+                    }
+
                     "scanFile" -> {
                         val path = call.argument<String>("path")
                         if (path != null) {
@@ -285,5 +307,85 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != PICK_VIDEO_REQUEST) return
+        val pending = pickVideosResult ?: return
+        pickVideosResult = null
+
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(emptyList<Map<String, Any?>>()); return
+        }
+
+        val uris = mutableListOf<Uri>()
+        data.clipData?.let { clip ->
+            for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
+        } ?: data.data?.let { uris.add(it) }
+
+        val videos = mutableListOf<Map<String, Any?>>()
+        for (uri in uris) {
+            resolvePickedUri(uri)?.let { videos.add(it) }
+        }
+        pending.success(videos)
+    }
+
+    private fun resolvePickedUri(uri: Uri): Map<String, Any?>? {
+        // Try direct query: works for standard MediaStore content:// URIs
+        try {
+            contentResolver.query(
+                uri,
+                arrayOf(MediaStore.Video.Media.DATA, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.SIZE),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val dataIdx = c.getColumnIndex(MediaStore.Video.Media.DATA)
+                    val nameIdx = c.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                    val sizeIdx = c.getColumnIndex(MediaStore.Video.Media.SIZE)
+                    val path = if (dataIdx >= 0) c.getString(dataIdx) else null
+                    if (!path.isNullOrEmpty()) {
+                        return mapOf(
+                            "path" to path,
+                            "displayName" to if (nameIdx >= 0) c.getString(nameIdx) else null,
+                            "size" to if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L,
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ShrinkEmVids", "Direct query failed for $uri", e)
+        }
+
+        // Fallback: photo picker URIs (content://media/picker/.../media/{id})
+        // Extract the numeric ID from the last path segment and re-query MediaStore
+        try {
+            val mediaId = uri.lastPathSegment?.toLong() ?: return null
+            val mediaUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, mediaId)
+            contentResolver.query(
+                mediaUri,
+                arrayOf(MediaStore.Video.Media.DATA, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.SIZE),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val dataIdx = c.getColumnIndex(MediaStore.Video.Media.DATA)
+                    val nameIdx = c.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                    val sizeIdx = c.getColumnIndex(MediaStore.Video.Media.SIZE)
+                    val path = if (dataIdx >= 0) c.getString(dataIdx) else null
+                    if (!path.isNullOrEmpty()) {
+                        return mapOf(
+                            "path" to path,
+                            "displayName" to if (nameIdx >= 0) c.getString(nameIdx) else null,
+                            "size" to if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L,
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ShrinkEmVids", "MediaStore ID fallback failed for $uri", e)
+        }
+
+        android.util.Log.e("ShrinkEmVids", "Could not resolve path for URI: $uri")
+        return null
     }
 }

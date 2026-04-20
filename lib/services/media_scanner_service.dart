@@ -36,6 +36,21 @@ class MediaScannerService {
     }
   }
 
+  /// Launches the native Android video picker.
+  /// Returns a list of maps with keys: path, displayName, size.
+  static Future<List<Map<String, dynamic>>> pickVideos() async {
+    try {
+      final raw = await _channel.invokeMethod<List<Object?>>('pickVideos');
+      return raw
+              ?.whereType<Map<Object?, Object?>>()
+              .map((m) => m.cast<String, dynamic>())
+              .toList() ??
+          [];
+    } on PlatformException catch (_) {
+      return [];
+    }
+  }
+
   /// Resolves the real MediaStore DISPLAY_NAME for a given numeric media ID.
   /// Returns null if not found or on error.
   static Future<String?> resolveDisplayName(String mediaId) async {
