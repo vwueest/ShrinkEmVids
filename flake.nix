@@ -17,6 +17,11 @@
           };
         };
 
+        gradleZip = pkgs.fetchurl {
+          url = "https://services.gradle.org/distributions/gradle-8.14-all.zip";
+          hash = "sha256-7+mj0UfZSNdSipiH+jWrzyTKGkOtBkOZlkkPd1abAtE=";
+        };
+
         androidSdk = (pkgs.androidenv.composeAndroidPackages {
           cmdLineToolsVersion = "13.0";
           platformToolsVersion = "35.0.1";
@@ -46,6 +51,7 @@
             androidSdk
             pkgs.jdk17
             pkgs.cmake
+            pkgs.unzip
           ];
 
           shellHook = ''
@@ -65,6 +71,14 @@
             export ANDROID_SDK_ROOT="$MUTABLE_SDK"
             export JAVA_HOME="${pkgs.jdk17}"
             export PATH="$MUTABLE_SDK/platform-tools:$MUTABLE_SDK/cmdline-tools/13.0/bin:$PATH"
+
+            # Pre-populate the Gradle wrapper cache so flutter build never needs network
+            GRADLE_DIST_DIR="$HOME/.gradle/wrapper/dists/gradle-8.14-all/c2qonpi39x1mddn7hk5gh9iqj"
+            if [[ ! -d "$GRADLE_DIST_DIR/gradle-8.14" ]]; then
+              rm -f "$GRADLE_DIST_DIR/gradle-8.14-all.zip.part" "$GRADLE_DIST_DIR/gradle-8.14-all.zip.lck"
+              mkdir -p "$GRADLE_DIST_DIR"
+              unzip -q "${gradleZip}" -d "$GRADLE_DIST_DIR"
+            fi
 
             # Write local.properties so AGP uses nixpkgs cmake directly
             # (avoids SDK manager trying to install cmake into the read-only Nix store)

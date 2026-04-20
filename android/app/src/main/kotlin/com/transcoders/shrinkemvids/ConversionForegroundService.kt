@@ -265,6 +265,7 @@ class ConversionForegroundService : Service() {
             "-g", "30",
             "-force_key_frames", "expr:gte(t,n_forced*2)",
             "-movflags", "+faststart",
+            "-map_metadata", "0",
             "-c:a", "aac",
             "-b:a", "${audioBitrateKbps}k",
             "-y", output,
@@ -275,11 +276,29 @@ class ConversionForegroundService : Service() {
     // ── MediaStore copy ──────────────────────────────────────────────────────
 
     private fun copyToMovies(sourcePath: String, filename: String): String? {
+        // Look up the original file's DATE_TAKEN so Google Photos places the
+        // compressed copy right next to the original in the timeline.
+        var dateTakenMs: Long? = null
+        try {
+            contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Video.Media.DATE_TAKEN),
+                "${MediaStore.Video.Media.DATA} = ?",
+                arrayOf(sourcePath), null
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val idx = c.getColumnIndex(MediaStore.Video.Media.DATE_TAKEN)
+                    if (idx >= 0 && !c.isNull(idx)) dateTakenMs = c.getLong(idx)
+                }
+            }
+        } catch (_: Exception) { /* best-effort */ }
+
         return try {
             val values = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, filename)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                 put(MediaStore.Video.Media.RELATIVE_PATH, "DCIM/Camera")
+                dateTakenMs?.let { put(MediaStore.Video.Media.DATE_TAKEN, it) }
                 put(MediaStore.Video.Media.IS_PENDING, 1)
             }
             val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)

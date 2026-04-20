@@ -3,8 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/video_file.dart';
 
-class SelectedFilesNotifier extends StateNotifier<List<VideoFile>> {
-  SelectedFilesNotifier() : super([]);
+class SelectedFilesNotifier extends Notifier<List<VideoFile>> {
+  @override
+  List<VideoFile> build() => [];
 
   void addFiles(List<VideoFile> files) {
     final existing = {for (final f in state) f.path};
@@ -50,8 +51,8 @@ class SelectedFilesNotifier extends StateNotifier<List<VideoFile>> {
 }
 
 final selectedFilesProvider =
-    StateNotifierProvider<SelectedFilesNotifier, List<VideoFile>>(
-  (ref) => SelectedFilesNotifier(),
+    NotifierProvider<SelectedFilesNotifier, List<VideoFile>>(
+  SelectedFilesNotifier.new,
 );
 
 VideoFile buildVideoFile(String path, {String? displayName}) {

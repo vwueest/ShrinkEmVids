@@ -41,15 +41,18 @@ class ConversionCancelled extends ConversionState {
   const ConversionCancelled(this.partial);
 }
 
-class ConversionStateNotifier extends StateNotifier<ConversionState> {
+class ConversionStateNotifier extends Notifier<ConversionState> {
   static const _eventChannel =
       EventChannel('com.transcoders.shrinkemvids/conversion_progress');
 
   StreamSubscription<dynamic>? _subscription;
 
-  ConversionStateNotifier() : super(const ConversionIdle()) {
+  @override
+  ConversionState build() {
+    ref.onDispose(() => _subscription?.cancel());
     _subscribeToEvents();
     _checkRunningService();
+    return const ConversionIdle();
   }
 
   // ── EventChannel subscription ────────────────────────────────────────────
@@ -117,16 +120,10 @@ class ConversionStateNotifier extends StateNotifier<ConversionState> {
   }
 
   void reset() => state = const ConversionIdle();
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
 }
 
 final conversionStateProvider =
-    StateNotifierProvider<ConversionStateNotifier, ConversionState>(
-  (ref) => ConversionStateNotifier(),
+    NotifierProvider<ConversionStateNotifier, ConversionState>(
+  ConversionStateNotifier.new,
 );
 
