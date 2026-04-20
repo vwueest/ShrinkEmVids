@@ -15,11 +15,25 @@ dependencies:
   permission_handler: ^11.3.1
   path_provider: ^2.1.4
   dynamic_color: ^1.7.0
+  flutter_native_splash: ^2.4.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.3
+
+flutter_native_splash:
+  color: "#1C1B1F"
+  image: assets/app_icon.png
+  android_12:
+    image: assets/app_icon_android12.png
+    color: "#1C1B1F"
+    icon_background_color: "#1C1B1F"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/app_icon.png
+    - assets/app_icon_256.png
+    - assets/app_icon_android12.png
