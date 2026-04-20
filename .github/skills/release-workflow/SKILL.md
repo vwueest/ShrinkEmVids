@@ -182,8 +182,51 @@ Before tagging a release:
 4. **Rebuild APKs**: `nix develop --command flutter build apk --release --split-per-abi`
 5. **Commit**: `git add … && git commit -m "release X.Y.Z: …"` (pre-commit hooks run automatically)
 6. **Tag**: `git tag -a vX.Y -m "vX.Y.Z — summary"`
-7. **Push**: `git push && git push --tags`
-8. **GitHub Release**: create from the tag, upload `app-arm64-v8a-release.apk` (and optionally `app-armeabi-v7a-release.apk`)
+7. **Push commit + tag**: `git push && git push --tags`
+8. **Create GitHub Release** (see below)
+
+---
+
+## Publishing a GitHub Release from the CLI
+
+Use the `gh` CLI (available in the Nix dev shell via `~/.nix-profile`).
+
+```bash
+gh release create vX.Y \
+  build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+  build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+  --title "vX.Y.Z" \
+  --notes "## What's new
+
+- Feature / fix description
+
+## Install
+
+- **\`app-arm64-v8a-release.apk\`** — all phones made after 2017
+- **\`app-armeabi-v7a-release.apk\`** — older 32-bit phones
+
+**Obtainium**: set APK filter to \`arm64-v8a\`."
+```
+
+The tag must already exist on the remote (`git push --tags`) before running this.
+
+To verify `gh` is authenticated: `gh auth status`
+
+---
+
+## Updating the GitHub Repo's About Section
+
+```bash
+gh repo edit \
+  --description "Your description here" \
+  --add-topic flutter \
+  --add-topic android \
+  --add-topic ffmpeg \
+  --add-topic video-compression \
+  --add-topic kotlin
+```
+
+Current description: "Android app that shrinks camera videos using FFmpeg and hardware HEVC encoding (MediaCodec)"
 
 ---
 
