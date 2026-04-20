@@ -19,6 +19,7 @@ Android app (Flutter) that re-encodes videos from DCIM/Camera at a lower resolut
 ## Features
 
 - Pick multiple videos via the native Android media picker
+- **Receive videos shared from other apps** (e.g. Google Photos) — select videos in any app, tap Share → ShrinkEmVids, and they land straight in the file list
 - Choose from preset quality profiles (480p, 720p, 1080p) with adjustable bitrate
 - Background encoding — keeps going while the app is minimised, with a persistent notification and cancel/skip controls
 - Progress screen shows per-file and overall progress
@@ -51,6 +52,43 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 
 > **NixOS users:** `programs.nix-ld.enable = true;` is required in your system config for Gradle-downloaded binaries (aapt2, etc.) to run.
 
+## Testing
+
+Unit tests cover the pure-Dart layer (models and Riverpod providers) and run entirely on the host — no device or emulator needed.
+
+```bash
+# Run all tests
+flutter test
+
+# Run a specific directory
+flutter test test/models/
+flutter test test/providers/
+
+# Filter by test name (substring or regex)
+flutter test --name "isEligible"
+flutter test --name "buildFfmpegArgs"
+
+# Generate an lcov coverage report
+flutter test --coverage
+# View with genhtml (if installed):
+genhtml coverage/lcov.info -o coverage/html && xdg-open coverage/html/index.html
+```
+
+Inside the Nix dev shell, prefix commands with `nix develop --command` if you haven't entered the shell yet:
+
+```bash
+nix develop --command flutter test
+```
+
+### What is tested
+
+| File | What it covers |
+|---|---|
+| `test/models/video_file_test.dart` | `isEligible`, `outputFileName`, `formattedDuration`, `copyWith`, `withMetadata` |
+| `test/models/encoding_preset_test.dart` | Labels, `maxHeight`, bitrate range invariants, all `buildFfmpegArgs` flag values |
+| `test/providers/selected_files_provider_test.dart` | Add/deduplicate, replace, toggle, select-all, deselect-all, update metadata, clear |
+| `test/providers/selected_preset_provider_test.dart` | Default resolution and bitrate, state mutation |
+
 ## Architecture
 
 | Layer | Details |
@@ -67,9 +105,11 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 - `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC`
 - `WAKE_LOCK`
 - `POST_NOTIFICATIONS`
+- No extra permissions needed for share-target — URIs are opened via `ContentResolver`
 
 ## Notable build notes
 
 - **ProGuard / R8**: `proguard-rules.pro` keeps all `com.antonkarpenko.ffmpegkit.*` classes — R8 would otherwise rename them and break `JNI_OnLoad` in the native `.so` at runtime (crashes release build only).
 - **Native lib packaging**: `jniLibs.useLegacyPackaging = true` forces `.so` files to be extracted on install. Without this, some ffmpeg-kit `.so` files fail to load from the compressed APK.
 - **ABI filter**: only `arm64-v8a` is included, keeping the APK at ~30 MB.
+- **Share target**: `ACTION_SEND` / `ACTION_SEND_MULTIPLE` intent-filters with `video/*` are declared in `AndroidManifest.xml`. URI resolution tries the MediaStore `DATA` column first; if the path is unreadable (Google Photos wraps URIs in its own content provider), the bytes are copied to `cacheDir/shrinkemvids_share/` via `ContentResolver.openInputStream`. Copying runs on `Dispatchers.IO` and the result is returned to Flutter asynchronously.
