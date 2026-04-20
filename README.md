@@ -29,7 +29,7 @@ Android app that shrinks your camera videos using **FFmpeg** and Android's **har
 ## Requirements
 
 - Android 13+ (API 33)
-- arm64-v8a device
+- arm64-v8a or armeabi-v7a device (see [Releases](../../releases) for the right APK)
 - ADB / `flutter run` for local development
 
 ## Building
