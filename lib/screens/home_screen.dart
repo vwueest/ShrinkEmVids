@@ -32,7 +32,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     FlutterNativeSplash.remove();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkReconnect());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkReconnect();
+      _checkSharedFiles();
+    });
   }
 
   @override
@@ -43,7 +46,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkReconnect();
+    if (state == AppLifecycleState.resumed) {
+      _checkReconnect();
+      _checkSharedFiles();
+    }
   }
 
   void _checkReconnect() {
@@ -59,6 +65,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       MaterialPageRoute(builder: (_) => const ProgressScreen()),
     );
     _navigatedToProgress = false;
+  }
+
+  // ── Share target ──────────────────────────────────────────────────────────
+
+  Future<void> _checkSharedFiles() async {
+    final shared = await MediaScannerService.getSharedFiles();
+    if (shared.isEmpty) return;
+    if (!mounted) return;
+
+    var files = <VideoFile>[];
+    for (final m in shared) {
+      final path = m['path'] as String?;
+      final displayName = m['displayName'] as String?;
+      if (path != null) files.add(buildVideoFile(path, displayName: displayName));
+    }
+    if (files.isEmpty) return;
+
+    final existing = await MediaScannerService.getExistingOutputNames();
+    if (!mounted) return;
+    files = files.map((f) {
+      if (existing.contains(f.outputFileName)) {
+        return f.copyWith(outputExists: true, selected: false);
+      }
+      return f;
+    }).toList();
+
+    // Switch to file-picker mode so the shared files are visible
+    ref.read(selectionModeProvider.notifier).state = SelectionMode.filePicker;
+    ref.read(selectedFilesProvider.notifier).addFiles(files);
+    _loadMetadata(ref, files);
   }
 
   // ── File picker mode ──────────────────────────────────────────────────────

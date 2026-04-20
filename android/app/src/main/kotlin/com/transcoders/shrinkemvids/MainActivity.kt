@@ -5,11 +5,13 @@ import android.content.ContentUris
 import android.net.Uri
 import android.content.ContentValues
 import android.content.Intent
+import android.os.Bundle
 import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.media.ThumbnailUtils
 import android.os.Build
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Size
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -17,6 +19,10 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : FlutterActivity() {
 
@@ -25,6 +31,118 @@ class MainActivity : FlutterActivity() {
     private var pickVideosResult: MethodChannel.Result? = null
     private val convChannel = "com.transcoders.shrinkemvids/conversion"
     private val progressChannel = "com.transcoders.shrinkemvids/conversion_progress"
+
+    /**
+     * Raw URIs buffered from incoming share intents, consumed lazily by [getSharedFiles].
+     * We deliberately defer path resolution / cache-copy to the background thread in
+     * getSharedFiles so that the main thread is never blocked by IO.
+     */
+    private val pendingSharedUris = mutableListOf<Uri>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        parseShareIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        parseShareIntent(intent)
+    }
+
+    /**
+     * Collects video URIs from a share intent into [pendingSharedUris].
+     * Only MIME-type filtering is done here; actual path resolution happens later
+     * on a background thread inside [getSharedFiles].
+     */
+    private fun parseShareIntent(intent: Intent) {
+        val uris = mutableListOf<Uri>()
+        when (intent.action) {
+            Intent.ACTION_SEND -> {
+                val uri: Uri? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                }
+                uri?.let { uris.add(it) }
+            }
+            Intent.ACTION_SEND_MULTIPLE -> {
+                val list: ArrayList<Uri>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
+                }
+                list?.let { uris.addAll(it) }
+            }
+            else -> return
+        }
+        for (uri in uris) {
+            val mime = contentResolver.getType(uri)
+            if (mime == null || !mime.startsWith("video/")) continue
+            pendingSharedUris.add(uri)
+        }
+    }
+
+    /**
+     * Resolves a shared URI to a directly readable file path.
+     *
+     * Fast path: query MediaStore DATA column — works for normal DCIM recordings
+     * shared via Files/Gallery apps that map straight to MediaStore entries.
+     *
+     * Slow path: if the DATA path is missing or not readable (e.g. Google Photos
+     * wraps URIs through its own content provider, sometimes pointing to a temp
+     * path in its private storage), copy the content via ContentResolver into the
+     * app's cache directory and return that path instead.
+     */
+    private fun resolveOrCopyUri(uri: Uri): Map<String, Any?>? {
+        // Fast path
+        val resolved = resolvePickedUri(uri)
+        if (resolved != null) {
+            val path = resolved["path"] as? String
+            if (path != null && File(path).canRead()) {
+                return resolved
+            }
+        }
+        // Slow path: copy the stream to our cache
+        return copyUriToCache(uri)
+    }
+
+    private fun copyUriToCache(uri: Uri): Map<String, Any?>? {
+        return try {
+            var displayName: String? = null
+            var size: Long = 0L
+            contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIdx = c.getColumnIndex(OpenableColumns.SIZE)
+                    if (nameIdx >= 0) displayName = c.getString(nameIdx)
+                    if (sizeIdx >= 0) size = c.getLong(sizeIdx)
+                }
+            }
+            if (displayName.isNullOrEmpty()) {
+                displayName = "shared_video_${System.currentTimeMillis()}.mp4"
+            }
+            val shareDir = File(cacheDir, "shrinkemvids_share").also { it.mkdirs() }
+            val outFile = File(shareDir, displayName!!)
+            contentResolver.openInputStream(uri)?.use { input ->
+                outFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            android.util.Log.d("ShrinkEmVids", "copyUriToCache: $uri -> ${outFile.absolutePath}")
+            mapOf(
+                "path" to outFile.absolutePath,
+                "displayName" to displayName,
+                "size" to size,
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("ShrinkEmVids", "copyUriToCache failed for $uri", e)
+            null
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -107,6 +225,21 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "getSharedFiles" -> {
+                        val uris = pendingSharedUris.toList()
+                        pendingSharedUris.clear()
+                        if (uris.isEmpty()) {
+                            result.success(emptyList<Map<String, Any?>?>())
+                        } else {
+                            // Resolve/copy on IO thread — may involve reading from another
+                            // app's content provider or copying large files to cache.
+                            CoroutineScope(Dispatchers.IO).launch {
+                                val files = uris.mapNotNull { resolveOrCopyUri(it) }
+                                withContext(Dispatchers.Main) { result.success(files) }
+                            }
+                        }
+                    }
+
                     "pickVideos" -> {
                         pickVideosResult = result
                         val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

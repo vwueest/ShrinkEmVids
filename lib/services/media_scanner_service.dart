@@ -63,5 +63,20 @@ class MediaScannerService {
       return null;
     }
   }
+
+  /// Returns (and clears) any video files that were shared to the app from
+  /// another app (e.g. Google Photos). Each map has keys: path, displayName, size.
+  static Future<List<Map<String, dynamic>>> getSharedFiles() async {
+    try {
+      final raw = await _channel.invokeMethod<List<Object?>>('getSharedFiles');
+      return raw
+              ?.whereType<Map<Object?, Object?>>()
+              .map((m) => m.cast<String, dynamic>())
+              .toList() ??
+          [];
+    } on PlatformException catch (_) {
+      return [];
+    }
+  }
 }
 
