@@ -1,7 +1,9 @@
 import 'package:flutter/services.dart';
 
 class MediaScannerService {
-  static const _channel = MethodChannel('com.transcoders.shrinkemvids/media_scanner');
+  static const _channel = MethodChannel(
+    'com.transcoders.shrinkemvids/media_scanner',
+  );
 
   static Future<void> scan(String path) async {
     try {
@@ -14,12 +16,15 @@ class MediaScannerService {
 
   /// Copies [sourcePath] into DCIM/Camera via MediaStore (Android 10+).
   /// Returns the display path or null on failure.
-  static Future<String?> copyToMovies(String sourcePath, String filename) async {
+  static Future<String?> copyToMovies(
+    String sourcePath,
+    String filename,
+  ) async {
     try {
-      final result = await _channel.invokeMethod<String>(
-        'copyToMovies',
-        {'sourcePath': sourcePath, 'filename': filename},
-      );
+      final result = await _channel.invokeMethod<String>('copyToMovies', {
+        'sourcePath': sourcePath,
+        'filename': filename,
+      });
       return result;
     } on PlatformException catch (_) {
       return null;
@@ -29,7 +34,9 @@ class MediaScannerService {
   /// Returns a set of all `*_compressed.mp4` filenames already in DCIM/Camera.
   static Future<Set<String>> getExistingOutputNames() async {
     try {
-      final result = await _channel.invokeListMethod<String>('getExistingOutputNames');
+      final result = await _channel.invokeListMethod<String>(
+        'getExistingOutputNames',
+      );
       return result?.toSet() ?? {};
     } on PlatformException catch (_) {
       return {};
@@ -55,10 +62,9 @@ class MediaScannerService {
   /// Returns null if not found or on error.
   static Future<String?> resolveDisplayName(String mediaId) async {
     try {
-      return await _channel.invokeMethod<String>(
-        'resolveDisplayName',
-        {'mediaId': mediaId},
-      );
+      return await _channel.invokeMethod<String>('resolveDisplayName', {
+        'mediaId': mediaId,
+      });
     } on PlatformException catch (_) {
       return null;
     }
@@ -79,4 +85,3 @@ class MediaScannerService {
     }
   }
 }
-

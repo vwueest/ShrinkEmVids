@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+  - repo: local
+    hooks:
+      - id: dart-format
+        name: dart format
+        language: system
+        entry: dart format --set-exit-if-changed
+        types: [file]
+        files: \.dart$
+        pass_filenames: true
+
+      - id: flutter-analyze
+        name: flutter analyze
+        language: system
+        entry: flutter analyze --no-fatal-infos
+        types: [file]
+        files: \.dart$
+        pass_filenames: false
+
+      - id: flutter-test
+        name: flutter test
+        language: system
+        entry: flutter test
+        types: [file]
+        files: \.dart$
+        pass_filenames: false
+        stages: [pre-push]

@@ -4,15 +4,24 @@ import '../providers/selected_files_provider.dart';
 import 'media_scanner_service.dart';
 
 class DateRangeScanner {
-  static const _channel = MethodChannel('com.transcoders.shrinkemvids/media_scanner');
+  static const _channel = MethodChannel(
+    'com.transcoders.shrinkemvids/media_scanner',
+  );
 
   /// Queries MediaStore for videos in DCIM/Camera taken between [from] and [to]
   /// (inclusive of the full [to] day). Flags files whose compressed output
   /// already exists in DCIM/Camera.
   static Future<List<VideoFile>> scan(DateTime from, DateTime to) async {
     final fromMs = from.millisecondsSinceEpoch;
-    final toMs = DateTime(to.year, to.month, to.day, 23, 59, 59, 999)
-        .millisecondsSinceEpoch;
+    final toMs = DateTime(
+      to.year,
+      to.month,
+      to.day,
+      23,
+      59,
+      59,
+      999,
+    ).millisecondsSinceEpoch;
 
     final List<dynamic> raw;
     try {

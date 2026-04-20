@@ -10,18 +10,17 @@ VideoFile _make({
   bool selected = true,
   int? durationMs,
   String? resolution,
-}) =>
-    VideoFile(
-      path: path,
-      name: path.split('/').last,
-      displayName: displayName,
-      sizeBytes: sizeBytes,
-      alreadyCompressed: alreadyCompressed,
-      outputExists: outputExists,
-      selected: selected,
-      durationMs: durationMs,
-      resolution: resolution,
-    );
+}) => VideoFile(
+  path: path,
+  name: path.split('/').last,
+  displayName: displayName,
+  sizeBytes: sizeBytes,
+  alreadyCompressed: alreadyCompressed,
+  outputExists: outputExists,
+  selected: selected,
+  durationMs: durationMs,
+  resolution: resolution,
+);
 
 void main() {
   group('VideoFile.isEligible', () {
@@ -38,7 +37,10 @@ void main() {
     });
 
     test('both flags set is not eligible', () {
-      expect(_make(alreadyCompressed: true, outputExists: true).isEligible, isFalse);
+      expect(
+        _make(alreadyCompressed: true, outputExists: true).isEligible,
+        isFalse,
+      );
     });
   });
 
@@ -53,12 +55,15 @@ void main() {
       expect(f.outputFileName, 'clip.mov_compressed.mp4');
     });
 
-    test('already-compressed display name produces double-compressed output name', () {
-      // This documents the current behaviour: detection is on the file itself,
-      // not on the output name math.
-      final f = _make(displayName: 'clip_compressed.mp4');
-      expect(f.outputFileName, 'clip_compressed_compressed.mp4');
-    });
+    test(
+      'already-compressed display name produces double-compressed output name',
+      () {
+        // This documents the current behaviour: detection is on the file itself,
+        // not on the output name math.
+        final f = _make(displayName: 'clip_compressed.mp4');
+        expect(f.outputFileName, 'clip_compressed_compressed.mp4');
+      },
+    );
   });
 
   group('VideoFile.formattedDuration', () {

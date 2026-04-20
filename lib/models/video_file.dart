@@ -2,15 +2,15 @@ import 'dart:typed_data';
 
 class VideoFile {
   final String path;
-  final String name;           // cached path filename (may have ~N suffix)
-  final String displayName;    // original filename from media store
+  final String name; // cached path filename (may have ~N suffix)
+  final String displayName; // original filename from media store
   final int sizeBytes;
   final bool alreadyCompressed;
   final bool outputExists;
   final bool selected;
-  final int? durationMs;       // from ffprobe, null until loaded
-  final String? resolution;    // e.g. "3840x2160", null until loaded
-  final Uint8List? thumbnail;  // JPEG bytes, null until loaded
+  final int? durationMs; // from ffprobe, null until loaded
+  final String? resolution; // e.g. "3840x2160", null until loaded
+  final Uint8List? thumbnail; // JPEG bytes, null until loaded
 
   VideoFile({
     required this.path,
@@ -60,7 +60,11 @@ class VideoFile {
   }
 
   /// Returns a copy with updated metadata fields (null values keep existing).
-  VideoFile withMetadata({int? durationMs, String? resolution, Uint8List? thumbnail}) {
+  VideoFile withMetadata({
+    int? durationMs,
+    String? resolution,
+    Uint8List? thumbnail,
+  }) {
     return VideoFile(
       path: path,
       name: name,

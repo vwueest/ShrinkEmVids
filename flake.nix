@@ -52,6 +52,7 @@
             pkgs.jdk17
             pkgs.cmake
             pkgs.unzip
+            pkgs.pre-commit
           ];
 
           shellHook = ''
@@ -86,6 +87,12 @@
 sdk.dir=$MUTABLE_SDK
 cmake.dir=${pkgs.cmake}
 EOF
+
+            # Install git hooks if inside a git repo and not already installed
+            if [[ -d .git ]] && [[ ! -f .git/hooks/pre-commit ]]; then
+              pre-commit install --install-hooks
+              pre-commit install --hook-type pre-push
+            fi
 
             echo ""
             echo "  ShrinkEmVids dev shell ready"

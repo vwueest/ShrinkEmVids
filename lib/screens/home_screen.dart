@@ -61,9 +61,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Future<void> _goToProgress() async {
     if (_navigatedToProgress) return;
     _navigatedToProgress = true;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ProgressScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ProgressScreen()));
     _navigatedToProgress = false;
   }
 
@@ -78,7 +78,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     for (final m in shared) {
       final path = m['path'] as String?;
       final displayName = m['displayName'] as String?;
-      if (path != null) files.add(buildVideoFile(path, displayName: displayName));
+      if (path != null) {
+        files.add(buildVideoFile(path, displayName: displayName));
+      }
     }
     if (files.isEmpty) return;
 
@@ -138,7 +140,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (!status.isGranted) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Video permission required to scan DCIM/Camera')),
+          const SnackBar(
+            content: Text('Video permission required to scan DCIM/Camera'),
+          ),
         );
       }
       return;
@@ -150,9 +154,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _loadMetadata(ref, files);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scan failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Scan failed: $e')));
       }
     } finally {
       ref.read(dateRangeScanningProvider.notifier).state = false;
@@ -171,7 +175,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Thumbnail
     final thumbnail = await ThumbnailService.getThumbnail(file.path);
     if (thumbnail != null) {
-      ref.read(selectedFilesProvider.notifier).updateMetadata(file.path, thumbnail: thumbnail);
+      ref
+          .read(selectedFilesProvider.notifier)
+          .updateMetadata(file.path, thumbnail: thumbnail);
     }
     // Duration + resolution
     try {
@@ -196,11 +202,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         }
       }
       if (durationMs != null || resolution != null) {
-        ref.read(selectedFilesProvider.notifier).updateMetadata(
-          file.path,
-          durationMs: durationMs,
-          resolution: resolution,
-        );
+        ref
+            .read(selectedFilesProvider.notifier)
+            .updateMetadata(
+              file.path,
+              durationMs: durationMs,
+              resolution: resolution,
+            );
       }
     } catch (_) {}
   }
@@ -300,7 +308,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ── File picker body ──────────────────────────────────────────────────────
 
-  Widget _buildFilePickerBody(BuildContext context, WidgetRef ref, List<VideoFile> files) {
+  Widget _buildFilePickerBody(
+    BuildContext context,
+    WidgetRef ref,
+    List<VideoFile> files,
+  ) {
     if (files.isEmpty) {
       return Center(
         child: ElevatedButton.icon(
@@ -326,7 +338,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               TextButton.icon(
                 icon: const Icon(Icons.clear_all),
                 label: const Text('Clear'),
-                onPressed: () => ref.read(selectedFilesProvider.notifier).clear(),
+                onPressed: () =>
+                    ref.read(selectedFilesProvider.notifier).clear(),
               ),
             ],
           ),
@@ -337,17 +350,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ── Date range body ───────────────────────────────────────────────────────
 
-  Widget _buildDateRangeBody(BuildContext context, WidgetRef ref, List<VideoFile> files) {
+  Widget _buildDateRangeBody(
+    BuildContext context,
+    WidgetRef ref,
+    List<VideoFile> files,
+  ) {
     final from = ref.watch(dateFromProvider);
     final to = ref.watch(dateToProvider);
     final isScanning = ref.watch(dateRangeScanningProvider);
 
     return Column(
       children: [
-        _buildDateRow(context, ref, 'From', from,
-            (d) => ref.read(dateFromProvider.notifier).state = d),
-        _buildDateRow(context, ref, 'To', to,
-            (d) => ref.read(dateToProvider.notifier).state = d),
+        _buildDateRow(
+          context,
+          ref,
+          'From',
+          from,
+          (d) => ref.read(dateFromProvider.notifier).state = d,
+        ),
+        _buildDateRow(
+          context,
+          ref,
+          'To',
+          to,
+          (d) => ref.read(dateToProvider.notifier).state = d,
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: SizedBox(
@@ -357,7 +384,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.search),
               label: Text(isScanning ? 'Scanning…' : 'Scan DCIM/Camera'),
@@ -376,11 +406,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () => ref.read(selectedFilesProvider.notifier).selectAllEligible(),
+                  onPressed: () => ref
+                      .read(selectedFilesProvider.notifier)
+                      .selectAllEligible(),
                   child: const Text('Select All New'),
                 ),
                 TextButton(
-                  onPressed: () => ref.read(selectedFilesProvider.notifier).deselectAll(),
+                  onPressed: () =>
+                      ref.read(selectedFilesProvider.notifier).deselectAll(),
                   child: const Text('Deselect All'),
                 ),
               ],
@@ -423,7 +456,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ── Shared file list ──────────────────────────────────────────────────────
 
-  Widget _buildFileList(BuildContext context, WidgetRef ref, List<VideoFile> files) {
+  Widget _buildFileList(
+    BuildContext context,
+    WidgetRef ref,
+    List<VideoFile> files,
+  ) {
     return ListView.builder(
       itemCount: files.length,
       itemBuilder: (ctx, i) {
@@ -431,7 +468,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _FileTile(
           file: file,
           onToggle: file.isEligible
-              ? () => ref.read(selectedFilesProvider.notifier).toggleSelection(i)
+              ? () =>
+                    ref.read(selectedFilesProvider.notifier).toggleSelection(i)
               : null,
         );
       },
@@ -467,7 +505,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onSelectionChanged: (val) {
                 final r = val.first;
                 ref.read(resolutionProvider.notifier).state = r;
-                ref.read(bitrateKbpsProvider.notifier).state = r.defaultBitrateKbps;
+                ref.read(bitrateKbpsProvider.notifier).state =
+                    r.defaultBitrateKbps;
               },
             ),
             const SizedBox(height: 4),
@@ -484,16 +523,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Expanded(
                   child: Slider(
                     value: bitrateKbps.toDouble().clamp(
-                        resolution.minBitrateKbps.toDouble(),
-                        resolution.maxBitrateKbps.toDouble()),
+                      resolution.minBitrateKbps.toDouble(),
+                      resolution.maxBitrateKbps.toDouble(),
+                    ),
                     min: resolution.minBitrateKbps.toDouble(),
                     max: resolution.maxBitrateKbps.toDouble(),
-                    divisions: ((resolution.maxBitrateKbps - resolution.minBitrateKbps) ~/
-                            resolution.stepBitrateKbps)
-                        .clamp(1, 200),
+                    divisions:
+                        ((resolution.maxBitrateKbps -
+                                    resolution.minBitrateKbps) ~/
+                                resolution.stepBitrateKbps)
+                            .clamp(1, 200),
                     label: '${mbps.toStringAsFixed(1)} Mbps',
                     onChanged: (val) =>
-                        ref.read(bitrateKbpsProvider.notifier).state = val.round(),
+                        ref.read(bitrateKbpsProvider.notifier).state = val
+                            .round(),
                   ),
                 ),
                 SizedBox(
@@ -518,7 +561,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             FilledButton.icon(
               icon: const Icon(Icons.play_arrow),
               label: const Text('Convert Selected'),
-              onPressed: eligible.isEmpty ? null : () => _startConversion(context, ref),
+              onPressed: eligible.isEmpty
+                  ? null
+                  : () => _startConversion(context, ref),
             ),
           ],
         ),
@@ -550,8 +595,8 @@ class _FileTile extends StatelessWidget {
     final blockedReason = file.alreadyCompressed
         ? 'Already compressed'
         : file.outputExists
-            ? 'Output already exists'
-            : null;
+        ? 'Output already exists'
+        : null;
 
     final meta = <String>[_formatSize(file.sizeBytes)];
     if (file.formattedDuration.isNotEmpty) meta.add(file.formattedDuration);
@@ -589,7 +634,9 @@ class _FileTile extends StatelessWidget {
                     blockedReason ?? meta.join(' · '),
                     style: TextStyle(
                       fontSize: 12,
-                      color: blockedReason != null ? Colors.orange : Theme.of(context).textTheme.bodySmall?.color,
+                      color: blockedReason != null
+                          ? Colors.orange
+                          : Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
@@ -619,4 +666,3 @@ class _FileTile extends StatelessWidget {
     );
   }
 }
-

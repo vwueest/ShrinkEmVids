@@ -27,7 +27,9 @@ class SelectedFilesNotifier extends Notifier<List<VideoFile>> {
   }
 
   void selectAllEligible() {
-    state = state.map((f) => f.isEligible ? f.copyWith(selected: true) : f).toList();
+    state = state
+        .map((f) => f.isEligible ? f.copyWith(selected: true) : f)
+        .toList();
   }
 
   void deselectAll() {
@@ -35,7 +37,12 @@ class SelectedFilesNotifier extends Notifier<List<VideoFile>> {
   }
 
   /// Updates metadata fields for the file at [path]. Null values keep existing.
-  void updateMetadata(String path, {int? durationMs, String? resolution, Uint8List? thumbnail}) {
+  void updateMetadata(
+    String path, {
+    int? durationMs,
+    String? resolution,
+    Uint8List? thumbnail,
+  }) {
     final idx = state.indexWhere((f) => f.path == path);
     if (idx < 0) return;
     final updated = List<VideoFile>.from(state);
@@ -52,8 +59,8 @@ class SelectedFilesNotifier extends Notifier<List<VideoFile>> {
 
 final selectedFilesProvider =
     NotifierProvider<SelectedFilesNotifier, List<VideoFile>>(
-  SelectedFilesNotifier.new,
-);
+      SelectedFilesNotifier.new,
+    );
 
 VideoFile buildVideoFile(String path, {String? displayName}) {
   final name = path.split('/').last;
@@ -70,4 +77,3 @@ VideoFile buildVideoFile(String path, {String? displayName}) {
     selected: !alreadyCompressed,
   );
 }
-

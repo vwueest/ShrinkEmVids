@@ -25,7 +25,8 @@ class ShrinkEmVidsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        final colorScheme = darkDynamic ??
+        final colorScheme =
+            darkDynamic ??
             ColorScheme.fromSeed(
               seedColor: _fallbackSeed,
               brightness: Brightness.dark,
@@ -33,10 +34,7 @@ class ShrinkEmVidsApp extends StatelessWidget {
         return MaterialApp(
           title: 'ShrinkEmVids',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: colorScheme,
-            useMaterial3: true,
-          ),
+          theme: ThemeData(colorScheme: colorScheme, useMaterial3: true),
           home: const HomeScreen(),
         );
       },

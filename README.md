@@ -14,12 +14,12 @@
   <img src="screenshots/4_converted.png" width="19%" alt="Done"/>
 </p>
 
-Android app (Flutter) that re-encodes videos from DCIM/Camera at a lower resolution and bitrate, saving them back to your gallery to save precious storage space.
+Android app that shrinks your camera videos using **FFmpeg** and Android's **hardware HEVC encoder** (MediaCodec) — re-encoding at a lower resolution and bitrate and saving the results straight back to your gallery, without eating through your battery.
 
 ## Features
 
 - Pick multiple videos via the native Android media picker
-- **Receive videos shared from other apps** (e.g. Google Photos) — select videos in any app, tap Share → ShrinkEmVids, and they land straight in the file list
+- Receive videos shared from other apps (e.g. Google Photos) — select videos in any app, tap Share → ShrinkEmVids, and they land straight in the file list
 - Choose from preset quality profiles (480p, 720p, 1080p) with adjustable bitrate
 - Background encoding — keeps going while the app is minimised, with a persistent notification and cancel/skip controls
 - Progress screen shows per-file and overall progress
@@ -43,14 +43,30 @@ nix develop
 # Run on a connected device
 flutter run
 
-# Build release APK
-flutter build apk --release
+# Build release APK (split per ABI — use the arm64 one for distribution)
+flutter build apk --release --split-per-abi
 
 # Install
-adb install -r build/app/outputs/flutter-apk/app-release.apk
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 ```
 
 > **NixOS users:** `programs.nix-ld.enable = true;` is required in your system config for Gradle-downloaded binaries (aapt2, etc.) to run.
+
+### Release signing
+
+Without a `key.properties` file the release build falls back to the debug keystore (fine for local testing; not suitable for distribution). To sign a release APK properly:
+
+1. Generate a keystore once:
+   ```bash
+   keytool -genkey -v -keystore android/keystore.jks -alias shrinkemvids \
+     -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. Copy the example and fill in your values:
+   ```bash
+   cp android/key.properties.example android/key.properties
+   # edit android/key.properties
+   ```
+   `key.properties` and `*.jks` are already gitignored.
 
 ## Testing
 
@@ -113,3 +129,13 @@ nix develop --command flutter test
 - **Native lib packaging**: `jniLibs.useLegacyPackaging = true` forces `.so` files to be extracted on install. Without this, some ffmpeg-kit `.so` files fail to load from the compressed APK.
 - **ABI filter**: only `arm64-v8a` is included, keeping the APK at ~30 MB.
 - **Share target**: `ACTION_SEND` / `ACTION_SEND_MULTIPLE` intent-filters with `video/*` are declared in `AndroidManifest.xml`. URI resolution tries the MediaStore `DATA` column first; if the path is unreadable (Google Photos wraps URIs in its own content provider), the bytes are copied to `cacheDir/shrinkemvids_share/` via `ContentResolver.openInputStream`. Copying runs on `Dispatchers.IO` and the result is returned to Flutter asynchronously.
+
+## License
+
+This project's source code is released under the **MIT License** — see [LICENSE](LICENSE).
+
+The compiled app bundles FFmpeg shared libraries (via `ffmpeg_kit_flutter_new`) which are licensed under **LGPL v2.1+**. Attribution, the full license text, and instructions for relinking with a custom FFmpeg build are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+## Credits
+
+Co-authored with [Claude Sonnet 4.6 and Claude Opus 4.6](https://www.anthropic.com/) (Anthropic).

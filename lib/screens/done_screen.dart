@@ -21,7 +21,9 @@ class DoneScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final successful = results.where((r) => r.success).toList();
-    final failed = results.where((r) => !r.success && r.error != 'Cancelled').toList();
+    final failed = results
+        .where((r) => !r.success && r.error != 'Cancelled')
+        .toList();
     final totalSaved = successful.fold<int>(0, (sum, r) => sum + r.savedBytes);
 
     return Scaffold(
@@ -31,7 +33,11 @@ class DoneScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+            const Icon(
+              Icons.check_circle_outline,
+              size: 64,
+              color: Colors.green,
+            ),
             const SizedBox(height: 24),
             Text(
               '${successful.length} file${successful.length == 1 ? '' : 's'} converted',
@@ -55,13 +61,24 @@ class DoneScreen extends ConsumerWidget {
               Expanded(
                 child: ListView(
                   children: failed
-                      .map((r) => ListTile(
-                            title: Text(r.inputPath.split('/').last,
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(r.error ?? 'Unknown error',
-                                maxLines: 2, overflow: TextOverflow.ellipsis),
-                            leading: const Icon(Icons.error_outline, color: Colors.red),
-                          ))
+                      .map(
+                        (r) => ListTile(
+                          title: Text(
+                            r.inputPath.split('/').last,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            r.error ?? 'Unknown error',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          leading: const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),

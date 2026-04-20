@@ -11,16 +11,15 @@ VideoFile _file({
   bool alreadyCompressed = false,
   bool outputExists = false,
   bool selected = true,
-}) =>
-    VideoFile(
-      path: path,
-      name: path.split('/').last,
-      displayName: displayName,
-      sizeBytes: sizeBytes,
-      alreadyCompressed: alreadyCompressed,
-      outputExists: outputExists,
-      selected: selected,
-    );
+}) => VideoFile(
+  path: path,
+  name: path.split('/').last,
+  displayName: displayName,
+  sizeBytes: sizeBytes,
+  alreadyCompressed: alreadyCompressed,
+  outputExists: outputExists,
+  selected: selected,
+);
 
 ProviderContainer _container() => ProviderContainer();
 
@@ -30,7 +29,10 @@ void main() {
       final container = _container();
       addTearDown(container.dispose);
       final notifier = container.read(selectedFilesProvider.notifier);
-      notifier.addFiles([_file(), _file(path: '/sdcard/b.mp4', displayName: 'b.mp4')]);
+      notifier.addFiles([
+        _file(),
+        _file(path: '/sdcard/b.mp4', displayName: 'b.mp4'),
+      ]);
       expect(container.read(selectedFilesProvider).length, 2);
     });
 
@@ -105,11 +107,16 @@ void main() {
       final notifier = container.read(selectedFilesProvider.notifier);
       notifier.addFiles([
         _file(path: '/a.mp4', displayName: 'a.mp4', selected: false),
-        _file(path: '/b.mp4', displayName: 'b.mp4', alreadyCompressed: true, selected: false),
+        _file(
+          path: '/b.mp4',
+          displayName: 'b.mp4',
+          alreadyCompressed: true,
+          selected: false,
+        ),
       ]);
       notifier.selectAllEligible();
       final files = container.read(selectedFilesProvider);
-      expect(files[0].selected, isTrue);  // eligible → selected
+      expect(files[0].selected, isTrue); // eligible → selected
       expect(files[1].selected, isFalse); // ineligible → unchanged
     });
 

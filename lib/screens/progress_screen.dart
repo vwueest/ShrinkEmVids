@@ -24,9 +24,7 @@ class ProgressScreen extends ConsumerWidget {
     final state = ref.watch(conversionStateProvider);
 
     if (state is ConversionConnecting) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (state is ConversionInProgress) {
@@ -99,4 +97,3 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 }
-

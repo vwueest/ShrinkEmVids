@@ -5,7 +5,9 @@ import '../models/video_file.dart';
 /// Delegates encoding work to [ConversionForegroundService] via MethodChannel.
 /// All heavy lifting (ffmpeg, MediaStore copy, notification) happens in Kotlin.
 class EncoderService {
-  static const _channel = MethodChannel('com.transcoders.shrinkemvids/conversion');
+  static const _channel = MethodChannel(
+    'com.transcoders.shrinkemvids/conversion',
+  );
 
   static Future<void> startConversion(
     List<VideoFile> files,
@@ -15,8 +17,8 @@ class EncoderService {
     final audioBitrateKbps = bitrateKbps >= 4000
         ? 192
         : bitrateKbps >= 2000
-            ? 128
-            : 96;
+        ? 128
+        : 96;
     await _channel.invokeMethod('startConversion', {
       'filePaths': files.map((f) => f.path).toList(),
       'displayNames': files.map((f) => f.displayName).toList(),
@@ -44,4 +46,3 @@ class EncoderService {
     return raw?.cast<String, dynamic>();
   }
 }
-

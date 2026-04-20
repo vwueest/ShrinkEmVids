@@ -84,22 +84,37 @@ extension ResolutionOptionX on ResolutionOption {
     final maxrate = (bitrateKbps * 1.13).round();
     final bufsize = bitrateKbps * 2;
     // Scale audio bitrate with overall quality
-    final audioBitrate = bitrateKbps >= 4000 ? 192 : bitrateKbps >= 2000 ? 128 : 96;
+    final audioBitrate = bitrateKbps >= 4000
+        ? 192
+        : bitrateKbps >= 2000
+        ? 128
+        : 96;
     args.addAll([
-      '-c:v', 'hevc_mediacodec',
-      '-pix_fmt', 'yuv420p',
-      '-profile:v', 'main',
-      '-level', '4.0',
-      '-b:v', '${bitrateKbps}k',
-      '-maxrate', '${maxrate}k',
-      '-bufsize', '${bufsize}k',
-      '-g', '30',
-      '-force_key_frames', 'expr:gte(t,n_forced*2)',
-      '-movflags', '+faststart',
-      '-c:a', 'aac',
-      '-b:a', '${audioBitrate}k',
+      '-c:v',
+      'hevc_mediacodec',
+      '-pix_fmt',
+      'yuv420p',
+      '-profile:v',
+      'main',
+      '-level',
+      '4.0',
+      '-b:v',
+      '${bitrateKbps}k',
+      '-maxrate',
+      '${maxrate}k',
+      '-bufsize',
+      '${bufsize}k',
+      '-g',
+      '30',
+      '-force_key_frames',
+      'expr:gte(t,n_forced*2)',
+      '-movflags',
+      '+faststart',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '${audioBitrate}k',
     ]);
     return args;
   }
 }
-

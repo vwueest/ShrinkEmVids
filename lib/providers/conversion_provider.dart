@@ -42,8 +42,9 @@ class ConversionCancelled extends ConversionState {
 }
 
 class ConversionStateNotifier extends Notifier<ConversionState> {
-  static const _eventChannel =
-      EventChannel('com.transcoders.shrinkemvids/conversion_progress');
+  static const _eventChannel = EventChannel(
+    'com.transcoders.shrinkemvids/conversion_progress',
+  );
 
   StreamSubscription<dynamic>? _subscription;
 
@@ -58,12 +59,9 @@ class ConversionStateNotifier extends Notifier<ConversionState> {
   // ── EventChannel subscription ────────────────────────────────────────────
 
   void _subscribeToEvents() {
-    _subscription = _eventChannel.receiveBroadcastStream().listen(
-      (event) {
-        if (event is Map) _handleEvent(Map<String, dynamic>.from(event));
-      },
-      onError: (_) {},
-    );
+    _subscription = _eventChannel.receiveBroadcastStream().listen((event) {
+      if (event is Map) _handleEvent(Map<String, dynamic>.from(event));
+    }, onError: (_) {});
   }
 
   void _handleEvent(Map<String, dynamic> event) {
@@ -95,7 +93,8 @@ class ConversionStateNotifier extends Notifier<ConversionState> {
         state = ConversionInProgress(
           currentIndex: (s['currentFileIndex'] as int?) ?? 0,
           totalFiles: (s['totalFiles'] as int?) ?? 1,
-          currentFileProgress: ((s['currentProgress'] as num?) ?? 0.0).toDouble(),
+          currentFileProgress: ((s['currentProgress'] as num?) ?? 0.0)
+              .toDouble(),
           currentFileName: (s['currentFileName'] as String?) ?? '',
         );
       }
@@ -124,6 +123,5 @@ class ConversionStateNotifier extends Notifier<ConversionState> {
 
 final conversionStateProvider =
     NotifierProvider<ConversionStateNotifier, ConversionState>(
-  ConversionStateNotifier.new,
-);
-
+      ConversionStateNotifier.new,
+    );
