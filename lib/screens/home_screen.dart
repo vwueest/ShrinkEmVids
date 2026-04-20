@@ -152,6 +152,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final files = await DateRangeScanner.scan(from, to);
       ref.read(selectedFilesProvider.notifier).replaceAll(files);
       _loadMetadata(ref, files);
+      if (files.isEmpty && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No videos found in DCIM/Camera for that date range'),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -420,7 +427,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
           Expanded(child: _buildFileList(context, ref, files)),
-        ] else
+        ] else if (!isScanning)
+          const Expanded(
+            child: Center(
+              child: Text(
+                'No videos found',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          )
+        else
           const Expanded(child: SizedBox()),
       ],
     );

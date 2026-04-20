@@ -326,38 +326,66 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "queryDcimVideos" -> {
-                        val fromMs = call.argument<Long>("fromMs") ?: 0L
-                        val toMs = call.argument<Long>("toMs") ?: Long.MAX_VALUE
-                        val projection = arrayOf(
-                            MediaStore.Video.Media.DATA,
-                            MediaStore.Video.Media.DISPLAY_NAME,
-                            MediaStore.Video.Media.SIZE,
-                        )
-                        val selection =
-                            "${MediaStore.Video.Media.RELATIVE_PATH} LIKE ? AND " +
-                            "${MediaStore.Video.Media.DATE_TAKEN} BETWEEN ? AND ?"
-                        val selArgs = arrayOf("DCIM/Camera%", fromMs.toString(), toMs.toString())
-                        val cursor = contentResolver.query(
-                            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                            projection, selection, selArgs,
-                            "${MediaStore.Video.Media.DATE_TAKEN} DESC"
-                        )
-                        val videos = mutableListOf<Map<String, Any?>>()
-                        cursor?.use { c ->
-                            val dataIdx = c.getColumnIndex(MediaStore.Video.Media.DATA)
-                            val nameIdx = c.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
-                            val sizeIdx = c.getColumnIndex(MediaStore.Video.Media.SIZE)
-                            while (c.moveToNext()) {
-                                val p = if (dataIdx >= 0) c.getString(dataIdx) else null
-                                    ?: continue
-                                videos.add(mapOf(
-                                    "path" to p,
-                                    "displayName" to if (nameIdx >= 0) c.getString(nameIdx) else null,
-                                    "size" to if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L,
-                                ))
+                        val fromMs = (call.argument<Any>("fromMs") as? Number)?.toLong() ?: 0L
+                        val toMs = (call.argument<Any>("toMs") as? Number)?.toLong() ?: Long.MAX_VALUE
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val projection = arrayOf(
+                                MediaStore.Video.Media._ID,
+                                MediaStore.Video.Media.DATA,
+                                MediaStore.Video.Media.DISPLAY_NAME,
+                                MediaStore.Video.Media.RELATIVE_PATH,
+                                MediaStore.Video.Media.SIZE,
+                                MediaStore.Video.Media.DATE_TAKEN,
+                            )
+                            val selection =
+                                "(${MediaStore.Video.Media.RELATIVE_PATH} LIKE ? OR " +
+                                "${MediaStore.Video.Media.DATA} LIKE ?) AND " +
+                                "(${MediaStore.Video.Media.DATE_TAKEN} BETWEEN ? AND ? OR " +
+                                "(${MediaStore.Video.Media.DATE_TAKEN} IS NULL AND " +
+                                "${MediaStore.Video.Media.DATE_MODIFIED} * 1000 BETWEEN ? AND ?))"
+                            val selArgs = arrayOf(
+                                "DCIM/Camera%",
+                                "%/DCIM/Camera/%",
+                                fromMs.toString(), toMs.toString(),
+                                fromMs.toString(), toMs.toString(),
+                            )
+
+                            val cursor = contentResolver.query(
+                                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                                projection, selection, selArgs,
+                                "${MediaStore.Video.Media.DATE_TAKEN} DESC"
+                            )
+                            val videos = mutableListOf<Map<String, Any?>>()
+                            cursor?.use { c ->
+                                val idIdx = c.getColumnIndex(MediaStore.Video.Media._ID)
+                                val dataIdx = c.getColumnIndex(MediaStore.Video.Media.DATA)
+                                val nameIdx = c.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                                val relIdx = c.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
+                                val sizeIdx = c.getColumnIndex(MediaStore.Video.Media.SIZE)
+                                while (c.moveToNext()) {
+                                    // Prefer DATA; fall back to constructing path from RELATIVE_PATH+DISPLAY_NAME
+                                    val data = if (dataIdx >= 0) c.getString(dataIdx) else null
+                                    val name = if (nameIdx >= 0) c.getString(nameIdx) else null
+                                    val rel  = if (relIdx  >= 0) c.getString(relIdx)  else null
+                                    val path: String = when {
+                                        !data.isNullOrEmpty() -> data
+                                        !rel.isNullOrEmpty() && !name.isNullOrEmpty() ->
+                                            "/storage/emulated/0/${rel.trimEnd('/')}/$name"
+                                        else -> {
+                                            // Last resort: content URI — FFmpeg can open content:// URIs
+                                            val id = if (idIdx >= 0) c.getLong(idIdx) else continue
+                                            "${MediaStore.Video.Media.EXTERNAL_CONTENT_URI}/$id"
+                                        }
+                                    }
+                                    videos.add(mapOf(
+                                        "path" to path,
+                                        "displayName" to name,
+                                        "size" to if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L,
+                                    ))
+                                }
                             }
+                            withContext(Dispatchers.Main) { result.success(videos) }
                         }
-                        result.success(videos)
                     }
 
                     "getExistingOutputNames" -> {                        val projection = arrayOf(MediaStore.Video.Media.DISPLAY_NAME)

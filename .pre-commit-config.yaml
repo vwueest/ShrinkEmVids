@@ -15,7 +15,7 @@ repos:
       - id: dart-format
         name: dart format
         language: system
-        entry: dart format --set-exit-if-changed
+        entry: nix develop --command dart format --set-exit-if-changed
         types: [file]
         files: \.dart$
         pass_filenames: true
@@ -23,7 +23,7 @@ repos:
       - id: flutter-analyze
         name: flutter analyze
         language: system
-        entry: flutter analyze --no-fatal-infos
+        entry: nix develop --command flutter analyze --no-fatal-infos
         types: [file]
         files: \.dart$
         pass_filenames: false
@@ -31,7 +31,7 @@ repos:
       - id: flutter-test
         name: flutter test
         language: system
-        entry: flutter test
+        entry: nix develop --command flutter test
         types: [file]
         files: \.dart$
         pass_filenames: false
